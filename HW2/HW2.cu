@@ -84,7 +84,7 @@ void cleanUp();
 // This will be the layout of the parallel space we will be using.
 void setUpDevices()
 {
-	BlockSize.x = 1024; // Dr. Wyatt said multiple of 32 is better
+	BlockSize.x = 1024; // Dr. Wyatt said multiple of 32 is better also 1024 is the maximum number of threads per block on most GPUs anyway
 	BlockSize.y = 1;
 	BlockSize.z = 1;
 	
@@ -131,9 +131,9 @@ void addVectorsCPU(float *a, float *b, float *c, int n)
 // This is the kernel. It is the function that will run on the GPU.
 // It adds vectors a and b on the GPU then stores result in vector c.
 __global__ void addVectorsGPU(float *a, float *b, float *c, int n)
-{
+{	// This works on Gridsize = 1 and Blocksize = 1 which we did use, need to change into a global indexing
 	int id = threadIdx.x; // This is the index of each thread
-	int threads = blockDim.x; // The number of threads in each block, 
+	int threads = blockDim.x; // The number of threads in each block, This is necessary for n > 1024 since blockDim.x = 1024
 	
 	for(int i = id; i < n; i += threads) // Simply add every element based on the index of the current thread
 	{ // The same concept as adding vectors in CPU, add the proper, matching index together
