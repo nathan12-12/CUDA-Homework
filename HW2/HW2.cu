@@ -1,4 +1,4 @@
-// Name:
+// Name: Nathanael Solagratia
 // Vector addition on the GPU, with one block
 // To compile: nvcc HW2.cu -o temp
 /*
