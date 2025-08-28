@@ -198,8 +198,9 @@ int main()
 	cudaMemcpyAsync(C_CPU, C_GPU, N*sizeof(float), cudaMemcpyDeviceToHost);
 
 	// Making sure the GPU and CPU wait until each other are at the same place.
-	cudaDeviceSynchronize();
-	
+	cudaDeviceSynchronize(); // The error was too many function call on this line, cudaDeviceSynchronize does not need any attribute
+	// cudaDeviceSynchronize(void) was the original line
+
 	gettimeofday(&end, NULL);
 	timeGPU = elaspedTime(start, end);
 	
