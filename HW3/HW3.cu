@@ -60,7 +60,7 @@ void setUpDevices()
 	BlockSize.y = 1;
 	BlockSize.z = 1;
 	
-	GridSize.x = 1;
+	GridSize.x = (N+BlockSize.x-1)/BlockSize.x;
 	GridSize.y = 1;
 	GridSize.z = 1;
 }
@@ -75,11 +75,8 @@ void allocateMemory()
 	
 	// Device "GPU" Memory
 	cudaMalloc(&A_GPU,N*sizeof(float));
-	cudaErrorCheck(__FILE__, __LINE__);
 	cudaMalloc(&B_GPU,N*sizeof(float));
-	cudaErrorCheck(__FILE__, __LINE__);
 	cudaMalloc(&C_GPU,N*sizeof(float));
-	cudaErrorCheck(__FILE__, __LINE__);
 
 }
 
@@ -193,19 +190,15 @@ int main()
 	
 	// Copy Memory from CPU to GPU		
 	cudaMemcpyAsync(A_GPU, A_CPU, N*sizeof(float), cudaMemcpyHostToDevice);
-	cudaErrorCheck(__FILE__, __LINE__);
 	cudaMemcpyAsync(B_GPU, B_CPU, N*sizeof(float), cudaMemcpyHostToDevice);
-	cudaErrorCheck(__FILE__, __LINE__);
 	
 	addVectorsGPU<<<GridSize,BlockSize>>>(A_GPU, B_GPU ,C_GPU, N);
 	
 	// Copy Memory from GPU to CPU	
 	cudaMemcpyAsync(C_CPU, C_GPU, N*sizeof(float), cudaMemcpyDeviceToHost);
-	cudaErrorCheck(__FILE__, __LINE__);
 
-	// Making sure the GPU and CPU wiat until each other are at the same place.
-	cudaDeviceSynchronize(void);
-	cudaErrorCheck(__FILE__, __LINE__);
+	// Making sure the GPU and CPU wait until each other are at the same place.
+	cudaDeviceSynchronize();
 	
 	gettimeofday(&end, NULL);
 	timeGPU = elaspedTime(start, end);
@@ -234,4 +227,3 @@ int main()
 	
 	return(0);
 }
-
