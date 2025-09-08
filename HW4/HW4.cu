@@ -41,7 +41,7 @@
 
 // Defines
 #define N 11503 // Length of the vector
-// With the complicated addition, the GPU was faster only when using the appropriate GridSize (the formula), even at n = 5000
+// With the complicated addition, the GPU was faster
 
 // Global variables
 float *A_CPU, *B_CPU, *C_CPU; //CPU pointers
