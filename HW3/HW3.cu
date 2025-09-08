@@ -103,7 +103,7 @@ void addVectorsCPU(float *a, float *b, float *c, int n)
 // It adds vectors a and b on the GPU then stores result in vector c.
 __global__ void addVectorsGPU(float *a, float *b, float *c, int n)
 {
-	int id = threadIdx.x;
+	int id = threadIdx.x; // should be threadIdx.x + blockDim.x * blockIdx.x
 	
 	while(id < n)
 	{
