@@ -58,7 +58,7 @@ void cudaErrorCheck(const char *file, int line)
 // This will be the layout of the parallel space we will be using.
 void setUpDevices()
 {
-	BlockSize.x = 1000;
+	BlockSize.x = 1024;
 	BlockSize.y = 1;
 	BlockSize.z = 1;
 	
@@ -117,19 +117,10 @@ __global__ void dotProductGPU(float *a, float *b, float *c, int n)
     __shared__ float cache[1024]; // The __shared__ keyword declares an array cache in shared memory, accessible by all threads within a block
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     int cacheIndex = threadIdx.x;
-    float temp = 0;
+	cache[cacheIndex] = a[tid] * b[tid];
+	__syncthreads(); // This function ensures all thread finishes before moving on
 
-    // Each thread calculates its unique index tid based on its threadIdx and blockIdx. The temp variable accumulates the dot product result for each thread.
-    while(tid < n) {
-		temp += a[tid] * b[tid];
-		tid += blockDim.x * gridDim.x;
-	}
-
-    // Store result in shared memory for later reduction
-    cache[cacheIndex] = temp;
-    __syncthreads(); // This function ensures everyone (the cache) finishes before moving on
-
-    // Reduction step, combining elements of an array in parallel
+	// Reduction step, combining elements of an array in parallel
 	// To sum up the partial results of each thread within a block
     int i = blockDim.x / 2;
     while (i > 0) {
