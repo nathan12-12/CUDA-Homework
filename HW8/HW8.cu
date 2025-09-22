@@ -110,28 +110,33 @@ void dotProductCPU(float *a, float *b, float *C_CPU, int n)
 // This is the kernel. It is the function that will run on the GPU.
 __global__ void dotProductGPU(float *a, float *b, float *C_GPU, int n)
 {
-	__shared__ float cache[Blocksize.x]; // The __shared__ keyword declares an array cache in shared memory, accessible by all threads within a block
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    	int cacheIndex = threadIdx.x;
-	float temp = 0;
-    	while (tid < n) {
-        	temp += a[tid] * b[tid];
-        	tid += blockDim.x * gridDim.x;
-   	}
-	// Each thread calculates its unique index tid based on its threadIdx and blockIdx. The temp variable accumulates the dot product result for each thread. The while 	// loop ensures that threads handle elements beyond their block's initial range by incrementing tid in steps of the total number of threads across all blocks.
-	cache[cacheIndex] = temp; // Each thread stores its computed result in the shared cache array.
-	__syncthreads(); // This function is a barrier that ensures all threads have finished writing to cache before any thread proceeds.
-	int i = blockDim.x / 2;
-   	while (i != 0) {
+    __shared__ float cache[1000]; // The __shared__ keyword declares an array cache in shared memory, accessible by all threads within a block
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int cacheIndex = threadIdx.x;
+    float temp = 0;
+
+    // Each thread calculates its unique index tid based on its threadIdx and blockIdx. The temp variable accumulates the dot product result for each thread.
+    while (tid < n) {
+        temp += a[tid] * b[tid];
+        tid += blockDim.x * gridDim.x;
+    }
+
+    // Store result in shared memory for later reduction
+    cache[cacheIndex] = temp;
+    __syncthreads();
+
+    // Reduction step
+    int i = blockDim.x / 2;
+    while (i!= 0) {
         if (cacheIndex < i)
-        	cache[cacheIndex] += cache[cacheIndex + i]; 
+            cache[cacheIndex] += cache[cacheIndex + i];
         __syncthreads();
-        i /= 2; // Threads iteratively add values from cache to perform a reduction,
-		// effectively summing up contributions from all threads to produce a final result per block.
-	if (cacheIndex == 0) {
-       		c[blockIdx.x] = cache[0]; // The first thread in each block (cacheIndex == 0) writes the final reduced result of the block to the global output array
-    	}
-	}	
+        i /= 2;
+    }
+
+    // Write the final reduced result of the block to the global output array
+    if (cacheIndex == 0)
+        C_GPU[blockIdx.x] = cache[0];
 }
 
 // Checking to see if anything went wrong in the vector addition.
