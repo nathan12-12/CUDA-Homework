@@ -116,21 +116,20 @@ __global__ void dotProductGPU(float *a, float *b, float *C_GPU, int n)
     float temp = 0;
 
     // Each thread calculates its unique index tid based on its threadIdx and blockIdx. The temp variable accumulates the dot product result for each thread.
-    while (tid < n) {
-        temp += a[tid] * b[tid];
-        tid += blockDim.x * gridDim.x;
-    }
+    if (tid < n)
+        temp += a[tid] * b[tid]
 
     // Store result in shared memory for later reduction
     cache[cacheIndex] = temp;
     __syncthreads(); // This function ensures everyone (the cache) finishes before moving on
 
-    // Reduction step
+    // Reduction step, combining elements of an array in parallel
+	// To sum up the partial results o each thread within a block
     int i = blockDim.x / 2;
-    while (i!= 0) {
+    while (i > 0) {
         if (cacheIndex < i)
             cache[cacheIndex] += cache[cacheIndex + i];
-        __syncthreads();
+        __syncthreads(); // This function ensures everyone (the cache) finishes before moving on
         i /= 2;
     }
 
@@ -219,12 +218,12 @@ int main()
 	dotProductGPU<<<GridSize,BlockSize>>>(A_GPU, B_GPU, C_GPU, N);
 	cudaErrorCheck(__FILE__, __LINE__);
 	
+	// Synchronizing first before copying memory.
+	cudaDeviceSynchronize();
+	cudaErrorCheck(__FILE__, __LINE__);
+
 	// Copy Memory from GPU to CPU	
 	cudaMemcpyAsync(C_CPU, C_GPU, N*sizeof(float), cudaMemcpyDeviceToHost);
-	cudaErrorCheck(__FILE__, __LINE__);
-	
-	// Making sure the GPU and CPU wait until each other are at the same place.
-	cudaDeviceSynchronize();
 	cudaErrorCheck(__FILE__, __LINE__);
 
 	DotGPU = 0;
