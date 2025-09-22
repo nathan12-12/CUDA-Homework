@@ -11,12 +11,13 @@
  Leave the block and vector sizes as:
  Block = 1000
  N = 823
- Use flolding at the block level when you do the addition reduction step.
+ Use folding at the block level when you do the addition reduction step.
 */
 
 // Include files
 #include <sys/time.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 // Defines
 #define N 823 // Length of the vector
@@ -34,11 +35,11 @@ void cudaErrorCheck(const char *, int);
 void setUpDevices();
 void allocateMemory();
 void innitialize();
-void dotProductCPU(float*, float*, int);
-__global__ void dotProductGPU(float*, float*, float*, int);
-bool  check(float, float, float);
+void dotProductCPU(float*, float*, float*, int);  // Fixed function signature
+__global__ void dotProductGPU(float*, float*, float*, int); // Fixed function signature
+bool check(float, float, float);
 long elaspedTime(struct timeval, struct timeval);
-void cleanUp();
+void CleanUp();
 
 // This check to see if an error happened in your CUDA code. It tell you what it thinks went wrong,
 // and what file and line it occured on.
@@ -72,14 +73,14 @@ void allocateMemory()
 	// Host "CPU" memory.				
 	A_CPU = (float*)malloc(N*sizeof(float));
 	B_CPU = (float*)malloc(N*sizeof(float));
-	C_CPU = (float*)malloc(N*sizeof(float));
+	C_CPU = (float*)malloc(GridSize.x*sizeof(float));  // Fixed: allocate space for partial results
 	
 	// Device "GPU" Memory
 	cudaMalloc(&A_GPU,N*sizeof(float));
 	cudaErrorCheck(__FILE__, __LINE__);
 	cudaMalloc(&B_GPU,N*sizeof(float));
 	cudaErrorCheck(__FILE__, __LINE__);
-	cudaMalloc(&C_GPU,N*sizeof(float));
+	cudaMalloc(&C_GPU,GridSize.x*sizeof(float));  // Fixed: allocate space for partial results
 	cudaErrorCheck(__FILE__, __LINE__);
 }
 
@@ -93,22 +94,24 @@ void innitialize()
 	}
 }
 
-// Adding vectors a and b on the CPU then stores result in vector c.
-void dotProductCPU(float *a, float *b, float *C_CPU, int n)
+// Computing dot product on the CPU - Fixed function
+void dotProductCPU(float *a, float *b, float *c, int n)
 {
+	// First compute element-wise products
 	for(int id = 0; id < n; id++)
 	{ 
-		C_CPU[id] = a[id] * b[id];
+		c[id] = a[id] * b[id];
 	}
 	
+	// Then sum all products into c[0]
 	for(int id = 1; id < n; id++)
 	{ 
-		C_CPU[0] += C_CPU[id];
+		c[0] += c[id];
 	}
 }
 
 // This is the kernel. It is the function that will run on the GPU.
-__global__ void dotProductGPU(float *a, float *b, float *C_GPU, int n)
+__global__ void dotProductGPU(float *a, float *b, float *c, int n)
 {
     __shared__ float cache[1000]; // The __shared__ keyword declares an array cache in shared memory, accessible by all threads within a block
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -126,7 +129,7 @@ __global__ void dotProductGPU(float *a, float *b, float *C_GPU, int n)
     __syncthreads(); // This function ensures everyone (the cache) finishes before moving on
 
     // Reduction step, combining elements of an array in parallel
-	// To sum up the partial results o each thread within a block
+	// To sum up the partial results of each thread within a block
     int i = blockDim.x / 2;
     while (i > 0) {
         if (cacheIndex < i)
@@ -137,7 +140,7 @@ __global__ void dotProductGPU(float *a, float *b, float *C_GPU, int n)
 
     // Write the final reduced result of the block to the global output array
     if (cacheIndex == 0)
-        C_GPU[blockIdx.x] = cache[0];
+        c[blockIdx.x] = cache[0];
 }
 
 // Checking to see if anything went wrong in the vector addition.
@@ -146,9 +149,11 @@ bool check(float cpuAnswer, float gpuAnswer, float tolerence)
 	double percentError;
 	
 	percentError = abs((gpuAnswer - cpuAnswer)/(cpuAnswer))*100.0;
-	printf("\n\n percent error = %lf\n", percentError);
+	printf("\n\n percent error = %lf", percentError);
+	printf("\n CPU result = %f", cpuAnswer);
+	printf("\n GPU result = %f", gpuAnswer);
 	
-	if(percentError < Tolerance) 
+	if(percentError < tolerence) 
 	{
 		return(true);
 	}
@@ -225,12 +230,13 @@ int main()
 	cudaErrorCheck(__FILE__, __LINE__);
 
 	// Copy Memory from GPU to CPU	
-	cudaMemcpyAsync(C_CPU, C_GPU, N*sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpyAsync(C_CPU, C_GPU, GridSize.x*sizeof(float), cudaMemcpyDeviceToHost);  // Copy correct amount
+	// C_GPU only needs space for GridSize.x partial results, not N results. The rest would be uninitialized memory, leading to incorrect results.
 	cudaErrorCheck(__FILE__, __LINE__);
 
 	DotGPU = 0;
 	for(int i = 0; i < GridSize.x; i++)
-		DotGPU += C_CPU[i]; // C_GPU was copied into C_CPU after the memory from GPU was copied into the CPU
+		DotGPU += C_CPU[i]; // Sum up partial results from each block
 
 	gettimeofday(&end, NULL);
 	timeGPU = elaspedTime(start, end);
@@ -255,5 +261,3 @@ int main()
 	
 	return(0);
 }
-
-
