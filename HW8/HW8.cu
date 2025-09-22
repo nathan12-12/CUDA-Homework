@@ -58,7 +58,7 @@ void cudaErrorCheck(const char *file, int line)
 // This will be the layout of the parallel space we will be using.
 void setUpDevices()
 {
-	BlockSize.x = 1024;
+	BlockSize.x = 1024; // For reductions, the number of threads per block must be a power of 2
 	BlockSize.y = 1;
 	BlockSize.z = 1;
 	
