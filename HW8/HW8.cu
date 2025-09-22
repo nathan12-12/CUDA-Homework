@@ -113,7 +113,8 @@ void dotProductCPU(float *a, float *b, float *c, int n)
 // This is the kernel. It is the function that will run on the GPU.
 __global__ void dotProductGPU(float *a, float *b, float *c, int n)
 {
-    __shared__ float cache[1000]; // The __shared__ keyword declares an array cache in shared memory, accessible by all threads within a block
+	// For reductions, the number of threads per block must be a power of 2
+    __shared__ float cache[1024]; // The __shared__ keyword declares an array cache in shared memory, accessible by all threads within a block
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     int cacheIndex = threadIdx.x;
     float temp = 0;
