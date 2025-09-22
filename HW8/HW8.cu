@@ -117,7 +117,7 @@ __global__ void dotProductGPU(float *a, float *b, float *C_GPU, int n)
 
     // Each thread calculates its unique index tid based on its threadIdx and blockIdx. The temp variable accumulates the dot product result for each thread.
     if (tid < n)
-        temp += a[tid] * b[tid]
+        temp += a[tid] * b[tid];
 
     // Store result in shared memory for later reduction
     cache[cacheIndex] = temp;
