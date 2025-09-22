@@ -61,7 +61,7 @@ void setUpDevices()
 	BlockSize.y = 1;
 	BlockSize.z = 1;
 	
-	GridSize.x = 1;
+	GridSize.x = (N + BlockSize.x - 1) / Blocksize.x; // Correct no. of blocks needed to cover N elements
 	GridSize.y = 1;
 	GridSize.z = 1;
 }
@@ -123,7 +123,7 @@ __global__ void dotProductGPU(float *a, float *b, float *C_GPU, int n)
 
     // Store result in shared memory for later reduction
     cache[cacheIndex] = temp;
-    __syncthreads();
+    __syncthreads(); // This function ensures everyone (the cache) finishes before moving on
 
     // Reduction step
     int i = blockDim.x / 2;
@@ -222,11 +222,14 @@ int main()
 	// Copy Memory from GPU to CPU	
 	cudaMemcpyAsync(C_CPU, C_GPU, N*sizeof(float), cudaMemcpyDeviceToHost);
 	cudaErrorCheck(__FILE__, __LINE__);
-	DotGPU = C_CPU[0]; // C_GPU was copied into C_CPU.
 	
-	// Making sure the GPU and CPU waitt until each other are at the same place.
+	// Making sure the GPU and CPU wait until each other are at the same place.
 	cudaDeviceSynchronize();
 	cudaErrorCheck(__FILE__, __LINE__);
+
+	DotGPU = 0;
+	for(int i = 0; i < GridSize.x; i++)
+		DotGPU += C_CPU[i]; // C_GPU was copied into C_CPU after the memory from GPU was copied into the CPU
 
 	gettimeofday(&end, NULL);
 	timeGPU = elaspedTime(start, end);
