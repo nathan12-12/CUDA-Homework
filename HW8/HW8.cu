@@ -61,7 +61,7 @@ void setUpDevices()
 	BlockSize.y = 1;
 	BlockSize.z = 1;
 	
-	GridSize.x = (N + BlockSize.x - 1) / Blocksize.x; // Correct no. of blocks needed to cover N elements
+	GridSize.x = (N - 1)/BlockSize.x + 1; // Correct no. of blocks needed to cover N elements
 	GridSize.y = 1;
 	GridSize.z = 1;
 }
