@@ -224,7 +224,7 @@ int main()
 	cudaErrorCheck(__FILE__, __LINE__);
 	DotGPU = C_CPU[0]; // C_GPU was copied into C_CPU.
 	
-	// Making sure the GPU and CPU wiat until each other are at the same place.
+	// Making sure the GPU and CPU waitt until each other are at the same place.
 	cudaDeviceSynchronize();
 	cudaErrorCheck(__FILE__, __LINE__);
 
