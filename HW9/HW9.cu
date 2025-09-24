@@ -60,7 +60,7 @@ void allocateMemory(int N) {
 	// This memory is "pinned" to physical RAM and cannot be paged out to disk.
 	// Lower data transfer overhead, faster data transfer rates between the CPU and GPU.
 	// Enables asynchronous memory transfers, allowing the CPU and GPU to work concurrently.
-	// At the expense of increase RAM usage
+	// At the expense of increased RAM usage
     cudaHostAlloc(&A_CPU, N * sizeof(float), cudaHostAllocDefault);
     cudaErrorCheck(__FILE__, __LINE__);
     cudaHostAlloc(&B_CPU, N * sizeof(float), cudaHostAllocDefault);
