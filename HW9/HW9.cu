@@ -196,7 +196,8 @@ int main(int argc, char *argv[]) {
     cudaEventCreate(&kernelStart);
     cudaEventCreate(&kernelStop);
     cudaEventRecord(kernelStart);
-    
+
+	// Kernel launch with dynamic shared memory allocation
     dotProductGPU<<<GridSize, BlockSize, BlockSize.x * sizeof(float)>>>(A_GPU, B_GPU, C_GPU, N);
     cudaErrorCheck(__FILE__, __LINE__);
     
