@@ -56,7 +56,11 @@ void setUpDevices(int N) {
     GridSize.z = 1;
 }
 
-void allocateMemory(int N) {    
+void allocateMemory(int N) {
+	// This memory is "pinned" to physical RAM and cannot be paged out to disk.
+	// Lower data transfer overhead, faster data transfer rates between the CPU and GPU.
+	// Enables asynchronous memory transfers, allowing the CPU and GPU to work concurrently.
+	// At the expense of increase RAM usage
     cudaHostAlloc(&A_CPU, N * sizeof(float), cudaHostAllocDefault);
     cudaErrorCheck(__FILE__, __LINE__);
     cudaHostAlloc(&B_CPU, N * sizeof(float), cudaHostAllocDefault);
@@ -137,7 +141,9 @@ long elaspedTime(struct timeval start, struct timeval end) {
 }
 
 void cleanUp() {
-    cudaFreeHost(A_CPU); // To avoid segmentation faults
+	// To avoid segmentation faults
+	// "cudaFreeHost" is the function to deallocate memory that was allocated as pinned memory using cudaHostAlloc
+    cudaFreeHost(A_CPU);
     cudaFreeHost(B_CPU); 
     cudaFreeHost(C_CPU);
     
