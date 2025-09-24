@@ -69,7 +69,8 @@ void allocateMemory(int N) {
     cudaMalloc(&B_GPU, N * sizeof(float));
     cudaErrorCheck(__FILE__, __LINE__);
     cudaMalloc(&C_GPU, GridSize.x * sizeof(float)); 
-    cudaErrorCheck(__FILE__, __LINE__);}
+    cudaErrorCheck(__FILE__, __LINE__);
+}
 
 void innitialize(int N) {
     for (int i = 0; i < N; i++) {        
