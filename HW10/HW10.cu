@@ -223,6 +223,7 @@ int main()
        	printf("No CUDA devices found.");
         return 1;
     }
+	printf("Found %d GPU(s)\n", deviceCount);
 
     int bestDevice = -1; // Default value just in case
     int minComputeCapabilityMajor = 3; // Minimum major compute capability
@@ -230,7 +231,6 @@ int main()
 
     for (int i = 0; i < deviceCount; ++i) {
         cudaGetDeviceProperties(&prop, i);
-		printf("Found %d GPU(s)\n", deviceCount);
         printf("Device %d Compute capability: %d.%d\n", i, prop.major, prop.minor);
 
         if (prop.major > minComputeCapabilityMajor || 
