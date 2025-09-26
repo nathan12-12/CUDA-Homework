@@ -238,11 +238,11 @@ int main()
             minComputeCapabilityMajor = prop.major; // Update the version of current GPU
             maxComputeCapabilityMinor = prop.minor;
             bestDevice = i; // Best device = Whatever current device is
-        }
+        } // If there is a draw, simply picks the 1st device
     }
 
     if (bestDevice != -1) { // Most of the main function now is within the if statement
-       	printf("Selected device with highest compute capability: Device %d \n", bestDevice);
+       	printf("\nSelected device with highest compute capability: Device %d \n", bestDevice);
         cudaSetDevice(bestDevice); // Built-in function for specified device
 		printf("GPU model: %s\n", prop.name);
 		// Setting up the GPU
