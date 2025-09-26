@@ -47,7 +47,6 @@ float Tolerance = 0.01;
 
 // Function prototypes
 void cudaErrorCheck(const char *, int);
-int* checkGPU(int); // Checking available GPU to use
 void setUpDevices();
 void allocateMemory();
 void innitialize();
@@ -69,48 +68,6 @@ void cudaErrorCheck(const char *file, int line)
 		printf("\n CUDA ERROR: message = %s, File = %s, Line = %d\n", cudaGetErrorString(error), file, line);
 		exit(0);
 	}
-}
-
-int* checkGPU(int count) {
-	cudaDeviceProp prop; // Device properties
-	cudaErrorCheck(__FILE__, __LINE__);
-	printf(" You have %d GPU(s) in this machine\n", count);
-	int *gpus = NULL;
-	int current_size = 0;
-	
-    for (int i = 0; i < count; i++) {
-	    cudaGetDeviceProperties(&prop, i);
-	    cudaErrorCheck(__FILE__, __LINE__);
-
-		 // GPU general info
-	    printf("\n--- General Information for device %d ---\n", i);
-	    printf("Name: %s\n", prop.name);
-	    printf("  (The name of the GPU device)\n");
-	    printf("Compute capability: %d.%d\n", prop.major, prop.minor);
-		gpus = (int *)realloc(gpus, (current_size + 1) * sizeof(int));
-		if (gpus == NULL) { /* Handle error */ }
-        gpus[current_size++] = prop.major;
-	}
-	// Display what the GPU compute capabilities
-	for (int i = 0; i < current_size; i++) {
-        printf("Compute Capability GPU %d: %d ", i, gpus[i]);
-    }
-    printf("\n\n");
-    return gpus;
-}
-
-int findMax(int arr[], int n) {
-    // Assume the first element is the largest initially
-    int max_val = arr[0];
-
-    // Iterate through the rest of the array
-    for (int i = 1; i < n; i++) {
-        // If the current element is greater than the current maximum, update max_val
-        if (arr[i] > max_val) {
-            max_val = arr[i];
-        }
-    }
-    return max_val;
 }
 
 // This will be the layout of the parallel space we will be using.
@@ -172,6 +129,7 @@ __global__ void dotProductGPU(float *a, float *b, float *c, int n)
 {
 	int threadIndex = threadIdx.x;
 	int vectorIndex = threadIdx.x + blockDim.x*blockIdx.x;
+	/*
 	__shared__ float c_sh[BLOCK_SIZE];
 	
 	c_sh[threadIndex] = (a[vectorIndex] * b[vectorIndex]);
@@ -196,8 +154,14 @@ __global__ void dotProductGPU(float *a, float *b, float *c, int n)
 		}
 		__syncthreads();
 	}
-	
 	c[blockDim.x*blockIdx.x] = c_sh[0];
+	*/
+	// Each thread computes a partial product
+    if (tid < n) {
+        float partial_product = a[tid] * b[tid];
+        // Use the atommicAdd for the partial product to the global result
+        atomicAdd(c, partial_product); 
+    }
 }
 
 // Checking to see if anything went wrong in the vector addition.
@@ -249,91 +213,111 @@ void CleanUp()
 
 int main()
 {
-	cudaDeviceProp prop; // Device properties
-	int count;
-	cudaGetDeviceCount(&count);
-	int maxGridY = prop.maxGridSize[1];
-	timeval start, end;
-	long timeCPU, timeGPU;
-	//float localC_CPU, localC_GPU;
+	int deviceCount;
+    cudaGetDeviceCount(&deviceCount);
 
-	// Check & Select which GPU (if multiple)
-	int* gpus_main = checkGPU(count);
-	int selected = findMax(gpus_main);
-	free(gpus_main); // Don't forget to free
-	printf("Selected %d". selected);
+    if (deviceCount == 0) {
+       	printf("No CUDA devices found.");
+        return 1;
+    }
 
-	// Setting up the GPU
-	setUpDevices();
+    int bestDevice = -1;
+    int maxComputeCapabilityMajor = -1;
+    int maxComputeCapabilityMinor = -1;
 
-	// Check if no. blocks exceeded the limit
-	printf("\nNo. of Blocks %d", GridSize.x);
-	if(GridSize.x > maxGridY) {
-		printf("\nNo. of Blocks exceeded the limit of %d\nExiting ... ", maxGridY);
-		exit(0);
-	}
-	
-	// Allocating the memory you will need.
-	allocateMemory();
-	
-	// Putting values in the vectors.
-	innitialize();
-	
-	// Adding on the CPU
-	gettimeofday(&start, NULL);
-	dotProductCPU(A_CPU, B_CPU, C_CPU, N);
-	DotCPU = C_CPU[0];
-	gettimeofday(&end, NULL);
-	timeCPU = elaspedTime(start, end);
-	
-	// Adding on the GPU
-	gettimeofday(&start, NULL);
-	
-	// Copy Memory from CPU to GPU		
-	cudaMemcpyAsync(A_GPU, A_CPU, N*sizeof(float), cudaMemcpyHostToDevice);
-	cudaErrorCheck(__FILE__, __LINE__);
-	cudaMemcpyAsync(B_GPU, B_CPU, N*sizeof(float), cudaMemcpyHostToDevice);
-	cudaErrorCheck(__FILE__, __LINE__);
-	
-	dotProductGPU<<<GridSize,BlockSize>>>(A_GPU, B_GPU, C_GPU, N);
-	cudaErrorCheck(__FILE__, __LINE__);
-	
-	// Copy Memory from GPU to CPU	
-	cudaMemcpyAsync(C_CPU, C_GPU, N*sizeof(float), cudaMemcpyDeviceToHost);
-	cudaErrorCheck(__FILE__, __LINE__);
-	
-	// Making sure the GPU and CPU wiat until each other are at the same place.
-	cudaDeviceSynchronize();
-	cudaErrorCheck(__FILE__, __LINE__);
-	
-	DotGPU = 0.0;
-	for(int i = 0; i < N; i += BlockSize.x)
-	{
-		DotGPU += C_CPU[i]; // C_GPU was copied into C_CPU. 
-	}
+    for (int i = 0; i < deviceCount; ++i) {
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, i);
 
-	gettimeofday(&end, NULL);
-	timeGPU = elaspedTime(start, end);
-	
-	// Checking to see if all went correctly.
-	if(check(DotCPU, DotGPU, Tolerance) == false)
-	{
-		printf("\n\n Something went wrong in the GPU dot product.\n");
-	}
-	else
-	{
-		printf("\n\n You did a dot product correctly on the GPU");
-		printf("\n The time it took on the CPU was %ld microseconds", timeCPU);
-		printf("\n The time it took on the GPU was %ld microseconds", timeGPU);
-	}
-	
-	// Your done so cleanup your room.	
-	CleanUp();	
-	
-	// Making sure it flushes out anything in the print buffer.
-	printf("\n\n");
-	
-	return(0);
+        printf("Device %d Compute capability: %d.%d\n", i, prop.major, prop.minor);
+
+        if (prop.major > maxComputeCapabilityMajor || 
+            (prop.major == maxComputeCapabilityMajor && prop.minor > maxComputeCapabilityMinor)) {
+            maxComputeCapabilityMajor = prop.major;
+            maxComputeCapabilityMinor = prop.minor;
+            bestDevice = i;
+        }
+    }
+
+    if (bestDevice != -1) {
+       	printf("Selected device with highest compute capability: Device %d \n", bestDevice);
+        cudaSetDevice(bestDevice); // Built-in function for specified device
+
+		// Setting up the GPU
+		setUpDevices();
+
+		// Check if no. blocks exceeded the limit
+		printf("\nNo. of Blocks %d", GridSize.x);
+		if(GridSize.x > maxGridY) {
+			printf("\nNo. of Blocks exceeded the limit of %d\nExiting ... ", maxGridY);
+			exit(0);
+		}
+		
+		// Allocating the memory you will need.
+		allocateMemory();
+		
+		// Putting values in the vectors.
+		innitialize();
+		
+		// Adding on the CPU
+		gettimeofday(&start, NULL);
+		dotProductCPU(A_CPU, B_CPU, C_CPU, N);
+		DotCPU = C_CPU[0];
+		gettimeofday(&end, NULL);
+		timeCPU = elaspedTime(start, end);
+		
+		// Adding on the GPU
+		gettimeofday(&start, NULL);
+		
+		// Copy Memory from CPU to GPU		
+		cudaMemcpyAsync(A_GPU, A_CPU, N*sizeof(float), cudaMemcpyHostToDevice);
+		cudaErrorCheck(__FILE__, __LINE__);
+		cudaMemcpyAsync(B_GPU, B_CPU, N*sizeof(float), cudaMemcpyHostToDevice);
+		cudaErrorCheck(__FILE__, __LINE__);
+		
+		dotProductGPU<<<GridSize,BlockSize>>>(A_GPU, B_GPU, C_GPU, N);
+		cudaErrorCheck(__FILE__, __LINE__);
+		
+		// Copy Memory from GPU to CPU	
+		cudaMemcpyAsync(C_CPU, C_GPU, N*sizeof(float), cudaMemcpyDeviceToHost);
+		cudaErrorCheck(__FILE__, __LINE__);
+		
+		// Making sure the GPU and CPU wiat until each other are at the same place.
+		cudaDeviceSynchronize();
+		cudaErrorCheck(__FILE__, __LINE__);
+		
+		DotGPU = 0.0;
+		for(int i = 0; i < N; i += BlockSize.x)
+		{
+			DotGPU += C_CPU[i]; // C_GPU was copied into C_CPU. 
+		}
+
+		gettimeofday(&end, NULL);
+		timeGPU = elaspedTime(start, end);
+		
+		// Checking to see if all went correctly.
+		if(check(DotCPU, DotGPU, Tolerance) == false)
+		{
+			printf("\n\n Something went wrong in the GPU dot product.\n");
+		}
+		else
+		{
+			printf("\n\n You did a dot product correctly on the GPU");
+			printf("\n The time it took on the CPU was %ld microseconds", timeCPU);
+			printf("\n The time it took on the GPU was %ld microseconds", timeGPU);
+		}
+		
+		// Your done so cleanup your room.	
+		CleanUp();	
+		
+		// Making sure it flushes out anything in the print buffer.
+		printf("\n\n");
+		
+	} else {
+        std::cerr << "Could not select a device." << std::endl;
+        return 1;
+    }
+
+    return 0;
 }
-
 
