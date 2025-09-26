@@ -127,7 +127,7 @@ void dotProductCPU(float *a, float *b, float *C_CPU, int n)
 // It adds vectors a and b on the GPU then stores result in vector c.
 __global__ void dotProductGPU(float *a, float *b, float *c, int n)
 {
-	int threadIndex = threadIdx.x;
+	// int threadIndex = threadIdx.x;
 	int vectorIndex = threadIdx.x + blockDim.x*blockIdx.x;
 	/*
 	__shared__ float c_sh[BLOCK_SIZE];
@@ -157,8 +157,8 @@ __global__ void dotProductGPU(float *a, float *b, float *c, int n)
 	c[blockDim.x*blockIdx.x] = c_sh[0];
 	*/
 	// Each thread computes a partial product
-    if (tid < n) {
-        float partial_product = a[tid] * b[tid];
+    if (vectorIndex < n) {
+        float partial_product = a[vectorIndex] * b[vectorIndex];
         // Use the atommicAdd for the partial product to the global result
         atomicAdd(c, partial_product); 
     }
@@ -214,42 +214,44 @@ void CleanUp()
 int main()
 {
 	int deviceCount;
+	cudaDeviceProp prop;
     cudaGetDeviceCount(&deviceCount);
+	timeval start, end;
+	long timeCPU, timeGPU;
 
     if (deviceCount == 0) {
        	printf("No CUDA devices found.");
         return 1;
     }
 
-    int bestDevice = -1;
-    int maxComputeCapabilityMajor = -1;
-    int maxComputeCapabilityMinor = -1;
+    int bestDevice = -1; // Default value just in case
+    int minComputeCapabilityMajor = 3; // Minimum major compute capability
+    int maxComputeCapabilityMinor = -1; // Default value for picking the better GPU based on the minor compute capability version
 
     for (int i = 0; i < deviceCount; ++i) {
-        cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, i);
-
+		printf("Found %d GPU(s)\n", deviceCount);
         printf("Device %d Compute capability: %d.%d\n", i, prop.major, prop.minor);
 
-        if (prop.major > maxComputeCapabilityMajor || 
-            (prop.major == maxComputeCapabilityMajor && prop.minor > maxComputeCapabilityMinor)) {
-            maxComputeCapabilityMajor = prop.major;
+        if (prop.major > minComputeCapabilityMajor || 
+            (prop.major == minComputeCapabilityMajor && prop.minor > maxComputeCapabilityMinor)) {
+            minComputeCapabilityMajor = prop.major; // Update the version of current GPU
             maxComputeCapabilityMinor = prop.minor;
-            bestDevice = i;
+            bestDevice = i; // Best device = Whatever current device is
         }
     }
 
-    if (bestDevice != -1) {
+    if (bestDevice != -1) { // Most of the main function now is within the if statement
        	printf("Selected device with highest compute capability: Device %d \n", bestDevice);
         cudaSetDevice(bestDevice); // Built-in function for specified device
-
+		printf("GPU model: %s\n", prop.name);
 		// Setting up the GPU
 		setUpDevices();
-
+		int maxGridY = prop.maxGridSize[1]; // This is the maximum no. of blocks = 2^16
 		// Check if no. blocks exceeded the limit
-		printf("\nNo. of Blocks %d", GridSize.x);
+		printf("\nNo. of Blocks %d\nLimit of blocks %d", GridSize.x, maxGridY);
 		if(GridSize.x > maxGridY) {
-			printf("\nNo. of Blocks exceeded the limit of %d\nExiting ... ", maxGridY);
+			printf("\nNo. of Blocks %d exceeded the limit of %d\nExiting ... ", GridSize.x, maxGridY);
 			exit(0);
 		}
 		
@@ -296,15 +298,18 @@ int main()
 		timeGPU = elaspedTime(start, end);
 		
 		// Checking to see if all went correctly.
-		if(check(DotCPU, DotGPU, Tolerance) == false)
-		{
+		if (!check(DotCPU, DotGPU, Tolerance)) {
 			printf("\n\n Something went wrong in the GPU dot product.\n");
-		}
-		else
-		{
+			printf(" CPU Result = %f\n", DotCPU);
+			printf(" GPU Result = %f\n", DotGPU);
+			printf("\n The time it took on the CPU was %ld microseconds", timeCPU);
+			printf("\n The time it took on the GPU was %ld microseconds", timeGPU);
+		} else {
 			printf("\n\n You did a dot product correctly on the GPU");
 			printf("\n The time it took on the CPU was %ld microseconds", timeCPU);
 			printf("\n The time it took on the GPU was %ld microseconds", timeGPU);
+			printf("\n The CPU result was %f", DotCPU);
+			printf("\n The GPU result was %f", DotGPU);
 		}
 		
 		// Your done so cleanup your room.	
@@ -314,7 +319,7 @@ int main()
 		printf("\n\n");
 		
 	} else {
-        std::cerr << "Could not select a device." << std::endl;
+        printf("No valid device");
         return 1;
     }
 
