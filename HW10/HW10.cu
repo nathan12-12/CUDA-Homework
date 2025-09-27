@@ -218,7 +218,8 @@ int main()
     cudaGetDeviceCount(&deviceCount);
 	timeval start, end;
 	long timeCPU, timeGPU;
-
+	int P = (N/BLOCK_SIZE) * BLOCK_SIZE; // "Padding" size, the total threads that will run
+	// To align the data structure's size to be an exact multiple of thread or block size, a memory access boundary, etc. 
     if (deviceCount == 0) {
        	printf("No CUDA devices found.");
         return 1;
@@ -250,6 +251,7 @@ int main()
 		int maxGridY = prop.maxGridSize[1]; // This is the maximum no. of blocks = 2^16
 		// Check if no. blocks exceeded the limit
 		printf("\nNo. of Blocks needed for %d vectors is %d blocks\nLimit of blocks %d", N, GridSize.x, maxGridY);
+		printf("\nNo. of Threads that will run %d", P)
 		if(GridSize.x > maxGridY) {
 			printf("\nNo. of Blocks %d exceeded the limit of %d\nExiting ... ", GridSize.x, maxGridY);
 			exit(0);
@@ -257,6 +259,12 @@ int main()
 		
 		// Allocating the memory you will need.
 		allocateMemory();
+		
+		// Ensure that every thread launched reads a valid memory location.
+		// If not, the threads with index i >= N would attempt to read data past the end of the original array. 
+		cudaMemset(A_GPU, 0, P * sizeof(float)); 
+		cudaMemset(B_GPU, 0, P * sizeof(float));
+		cudaMemset(C_GPU, 0, GridSize.x * sizeof(float)); // Because you'll only have "block size" amount of partial sums
 		
 		// Putting values in the vectors.
 		innitialize();
