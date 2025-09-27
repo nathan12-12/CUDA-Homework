@@ -251,7 +251,7 @@ int main()
 		int maxGridY = prop.maxGridSize[1]; // This is the maximum no. of blocks = 2^16
 		// Check if no. blocks exceeded the limit
 		printf("\nNo. of Blocks needed for %d vectors is %d blocks\nLimit of blocks %d", N, GridSize.x, maxGridY);
-		printf("\nNo. of Threads that will run %d", P)
+		printf("\nNo. of Threads that will run %d", P);
 		if(GridSize.x > maxGridY) {
 			printf("\nNo. of Blocks %d exceeded the limit of %d\nExiting ... ", GridSize.x, maxGridY);
 			exit(0);
