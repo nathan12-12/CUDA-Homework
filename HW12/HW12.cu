@@ -128,7 +128,7 @@ __global__ void makeSphersBitMap(float *pixels, sphereStruct *sphereInfo)
 	Calling the "hit" function for every sphere
 	If a collision (collision with light) is detected (hitValue is valid),
 	Then the color of the pixel is updated to the sphere's color multiplied by dimingValue.
-	Only the closest sphere is used, as maxHit tracks the minimum distance.
+	Only the closest sphere is used (closest to the camera, the POV), as maxHit tracks the minimum distance.
 	Because the "hit" function stops the moment the light hit something, so it will ignored everything "behind" it.
 	Also the "hit" function does not calculate a shadow if this occurs.
 	*/
@@ -205,14 +205,14 @@ void makeBitMap()
 
 void paintScreen()
 {
-	//Putting pixels on the screen.
+	// Putting pixels on the screen.
 	glDrawPixels(WINDOWWIDTH, WINDOWHEIGHT, GL_RGB, GL_FLOAT, PixelsCPU); 
 	glFlush();
 }
 
 void setup()
 {
-	//We need the 3 because each pixel has a red, green, and blue value.
+	// We need the 3 because each pixel has a red, green, and blue value.
 	PixelsCPU = (float *)malloc(WINDOWWIDTH*WINDOWHEIGHT*3*sizeof(float));
 	cudaMalloc(&PixelsGPU,WINDOWWIDTH*WINDOWHEIGHT*3*sizeof(float));
 	cudaErrorCheck(__FILE__, __LINE__);
@@ -221,19 +221,20 @@ void setup()
 	cudaMalloc(&SpheresGPU, NUMSPHERES*sizeof(sphereStruct));
 	cudaErrorCheck(__FILE__, __LINE__);
 	
-	//Threads in a block
+	// Threads in a block
 	if(WINDOWWIDTH > 1024)
 	{
 	 	printf("The window width is too large to run with this program\n");
 	 	printf("The window width must be less than 1024.\n");
 	 	printf("Good Bye and have a nice day!\n");
 	 	exit(0);
+		// Because it exceeds the maximum number of threads allowed in a block, the kernel will be invalid. 
 	}
 	BlockSize.x = WINDOWWIDTH;
 	BlockSize.y = 1;
 	BlockSize.z = 1;
 	
-	//Blocks in a grid
+	// Blocks in a grid
 	GridSize.x = WINDOWHEIGHT;
 	GridSize.y = 1;
 	GridSize.z = 1;
