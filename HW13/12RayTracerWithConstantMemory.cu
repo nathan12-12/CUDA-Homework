@@ -81,6 +81,13 @@ void KeyPressed(unsigned char key, int x, int y)
 {	
 	if(key == 'q')
 	{
+		// Cleanup before exiting
+		// Free the  memory allocated for Pixels and SpheresCPU
+		// __constant__ memory is automatically freed by the CUDA runtime when the program terminates
+        cudaFree(PixelsGPU);
+        free(PixelsCPU);
+        free(SpheresCPU); 
+
 		glutDestroyWindow(Window);
 		printf("\nw Good Bye\n");
 		exit(0);
@@ -165,9 +172,9 @@ void makeBitMap()
     
 	// CUDA timing setup
     cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start);
+	cudaEventCreate( &start );
+	cudaEventCreate( &stop );
+	cudaEventRecord( start, 0 );
 
 	// No need to pass PixelsCPU because it accesses it from constant memory directly.
     makeSphersBitMap<<<GridSize, BlockSize>>>(PixelsGPU);
@@ -177,8 +184,8 @@ void makeBitMap()
 	cudaErrorCheck(__FILE__, __LINE__);
 
 	// Timing complete
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
+    cudaEventRecord(stop, 0);
+	cudaEventSynchronize(stop);
 
 	float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
