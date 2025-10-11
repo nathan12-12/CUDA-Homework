@@ -202,7 +202,7 @@ __global__ void fillHistogramGPU(float *randomNumbers, int *hist)
 		// Correct binning calculation
 		// Example if randomNumbers[i] = 45 ---> int(45/10) ---> 4 ---> add to bin 4
         int where = (int)(randomNumbers[i]/NUMBER_OF_BINS); // Typecast to int
-        if (where >= 0 && where < NUMBER_OF_BINS) {
+        if (where >= 0 && where < NUMBER_OF_BINS) { // where should be between 0 and 9
             // Use atomicAdd on the shared memory location
             atomicAdd(&(temp[where]), 1);
         }
