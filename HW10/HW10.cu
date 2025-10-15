@@ -73,13 +73,19 @@ void cudaErrorCheck(const char *file, int line)
 // This will be the layout of the parallel space we will be using.
 void setUpDevices()
 {
-	BlockSize.x = BLOCK_SIZE;
-	BlockSize.y = 1;
-	BlockSize.z = 1;
-	
-	GridSize.x = (N - 1)/BlockSize.x + 1; // This gives us the correct number of blocks.
-	GridSize.y = 1;
-	GridSize.z = 1;
+    BlockSize.x = BLOCK_SIZE;
+    BlockSize.y = 1;
+    BlockSize.z = 1;
+    
+    GridSize.x = (N - 1) / BlockSize.x + 1; // This gives us the correct number of blocks.
+    GridSize.y = 1;
+    GridSize.z = 1;
+
+    // Check if BlockSize.x is a power of 2
+    if ((BlockSize.x & (BlockSize.x - 1)) != 0) {
+        printf("Error: Block size is NOT a power of 2. Exiting...\n");
+        exit(0);
+    }
 }
 
 // Allocating the memory we will be using.
@@ -125,42 +131,36 @@ void dotProductCPU(float *a, float *b, float *C_CPU, int n)
 
 // This is the kernel. It is the function that will run on the GPU.
 // It adds vectors a and b on the GPU then stores result in vector c.
+
 __global__ void dotProductGPU(float *a, float *b, float *c, int n)
 {
-	// int threadIndex = threadIdx.x;
-	int vectorIndex = threadIdx.x + blockDim.x*blockIdx.x;
-	/*
-	__shared__ float c_sh[BLOCK_SIZE];
-	
-	c_sh[threadIndex] = (a[vectorIndex] * b[vectorIndex]);
-	__syncthreads();
-	
-	int fold = blockDim.x;
-	while(1 < fold)
-	{
-		if(fold%2 != 0)
-		{
-			if(threadIndex == 0 && (vectorIndex + fold - 1) < n)
-			{
-				c_sh[0] = c_sh[0] + c_sh[0 + fold - 1];
-			}
-			fold = fold - 1;
-		}
-		fold = fold/2;
-		if(threadIndex < fold && (vectorIndex + fold) < n)
-		{
-			c_sh[threadIndex] = c_sh[threadIndex] + c_sh[threadIndex + fold];
-			
-		}
-		__syncthreads();
-	}
-	c[blockDim.x*blockIdx.x] = c_sh[0];
-	*/
-	// Each thread computes a partial product
+    int threadIndex = threadIdx.x;
+    int vectorIndex = threadIdx.x + blockDim.x * blockIdx.x;
+
+    __shared__ float s_data[BLOCK_SIZE];
+
+    // Each thread computes its partial product
     if (vectorIndex < n) {
-        float partial_product = a[vectorIndex] * b[vectorIndex];
-        // Use the atommicAdd for the partial product to the global result
-        atomicAdd(c, partial_product); 
+        s_data[threadIndex] = a[vectorIndex] * b[vectorIndex];
+    } else {
+        s_data[threadIndex] = 0.0f;  // If the thread is out of bounds, set it to 0
+    }
+
+    __syncthreads();
+
+    // Perform the folding (reduction) in shared memory within each block
+    int fold = blockDim.x / 2;
+    while (fold > 0) {
+        if (threadIndex < fold) {
+            s_data[threadIndex] += s_data[threadIndex + fold];
+        }
+        __syncthreads();
+        fold /= 2;
+    }
+
+    // Only thread 0 in each block writes the result back to global memory
+    if (threadIndex == 0) {
+        atomicAdd(c, s_data[0]);
     }
 }
 
@@ -254,7 +254,7 @@ int main()
 		printf("\nNo. of Threads that will run %d", P);
 		if(GridSize.x > maxGridY) {
 			printf("\nNo. of Blocks %d exceeded the limit of %d\nExiting ... ", GridSize.x, maxGridY);
-			exit(0);
+			exit(0); // If so, exit
 		}
 		
 		// Allocating the memory you will need.
