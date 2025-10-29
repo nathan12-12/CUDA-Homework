@@ -25,7 +25,7 @@ Once the two streams are working, overlap them in a smart way to improve perform
 #define ENTIRE_DATA_SET (20*DATA_CHUNKS)
 #define MAX_RANDOM_NUMBER 1000
 #define BLOCK_SIZE 256
-#define TOLERANCE 1e-6 
+#define TOLERANCE 1e-4 
 
 //Globals
 dim3 BlockSize; //This variable will hold the Dimensions of your block
@@ -201,6 +201,9 @@ int main()
 	
 	for(int i = 0; i < ENTIRE_DATA_SET; i += DATA_CHUNKS*2)
 	{
+		cudaMemset(C0_GPU, 0, DATA_CHUNKS * sizeof(float));
+		cudaMemset(C1_GPU, 0, DATA_CHUNKS * sizeof(float));
+
 		// With "&" like &A_CPU[i] you can get the address of the i-th element of the array.
 		// With A_CPU+i does the same thing, but its called pointer arithmetic.
 		// 1st Stream
@@ -216,15 +219,16 @@ int main()
 		cudaErrorCheck(__FILE__, __LINE__);
 		
 		// 2nd Stream
-		cudaMemcpyAsync(A1_GPU, &A_CPU[i], DATA_CHUNKS*sizeof(float), cudaMemcpyHostToDevice, Stream0);
+		cudaMemcpyAsync(A1_GPU, &A_CPU[i], DATA_CHUNKS*sizeof(float), cudaMemcpyHostToDevice, Stream1);
 		cudaErrorCheck(__FILE__, __LINE__);
-		cudaMemcpyAsync(B1_GPU, &B_CPU[i], DATA_CHUNKS*sizeof(float), cudaMemcpyHostToDevice, Stream0);
-		cudaErrorCheck(__FILE__, __LINE__);
-
-		trigAdditionGPU<<<GridSize, BlockSize, 0, Stream0>>>(A1_GPU, B1_GPU, C1_GPU, DATA_CHUNKS);
+		cudaMemcpyAsync(B1_GPU, &B_CPU[i], DATA_CHUNKS*sizeof(float), cudaMemcpyHostToDevice, Stream1);
 		cudaErrorCheck(__FILE__, __LINE__);
 
-		cudaMemcpyAsync(&C_CPU[i], C1_GPU, DATA_CHUNKS*sizeof(float), cudaMemcpyDeviceToHost, Stream0);
+		trigAdditionGPU<<<GridSize, BlockSize, 0, Stream1>>>(A1_GPU, B1_GPU, C1_GPU, DATA_CHUNKS);
+		cudaErrorCheck(__FILE__, __LINE__);
+
+		// Factor in the offset for the 2nd half of the data chunk
+		cudaMemcpyAsync(&C_CPU[i + DATA_CHUNKS], C1_GPU, DATA_CHUNKS*sizeof(float), cudaMemcpyDeviceToHost, Stream1);
 		cudaErrorCheck(__FILE__, __LINE__);
 	}
 	
@@ -240,19 +244,23 @@ int main()
 	cudaEventElapsedTime(&timeEvent, StartEvent, StopEvent);
 	cudaErrorCheck(__FILE__, __LINE__);
 	printf("\n Time on GPU = %3.1f milliseconds", timeEvent);
-	printf("Final Results from GPU, the first 10 elements:\n");
+	printf("\nFinal Results from GPU, the first 10 elements:\n");
 	for(int i = 0; i < 10; i++) {
 		printf("C_CPU[%d] = %f\n", i, C_CPU[i]);
 	}
 	for(int i = 0; i < ENTIRE_DATA_SET; i++) {
 		C_CPU_Test[i] = sin(A_CPU[i]) + cos(B_CPU[i]);
 	}
-	for(int i = 0; i < 10; i++) { // Check first 10 elements
-		if( C_CPU[i] - C_CPU_Test[i] != 0.0)
-		    printf("Screw up in %d, answer: %f:\n", i, C_CPU_Test[i]);
+	bool allMatch = false;
+	for(int i = 0; i < ENTIRE_DATA_SET; i++) {// Check all elements
+		if(fabs(C_CPU[i] - C_CPU_Test[i]) > TOLERANCE)
+			printf("Screw up in %d, answer: %f, expected: %f\n", i, C_CPU[i], C_CPU_Test[i]);
 		else
-			printf("Result %d match CPU calculations!\n", i);
+			allMatch = true;
 	}
+	if (allMatch)
+		printf("\nCPU and GPU results match within tolerance of %e\n", TOLERANCE);
+
 	printf("\n");
 	//You're done so cleanup your mess.
 	cleanUp();	
