@@ -112,18 +112,18 @@ int main() {
 	// Setting up the GPU
 	setUpDevices();
 	
-    // Allocate Unified Memory using cudaMallocManaged
+    // Intiate values for final position x and y variables
     int *d_final_positionX = NULL;
     int *d_final_positionY = NULL;
     size_t mem_size = NUM_WALKS * sizeof(int);
     
-    // Allocates memory accessible by both CPU and GPU
+    // Allocates unified memory accessible by both CPU and GPU
     cudaMallocManaged((void**)&d_final_positionX, mem_size);
 	cudaErrorCheck(__FILE__, __LINE__);
     cudaMallocManaged((void**)&d_final_positionY, mem_size);
 	cudaErrorCheck(__FILE__, __LINE__);
 
-    // Get a time-based seed for the random walks' initialization
+    // Get a time-based seed for the random walks initialization
     unsigned long long base_seed = (unsigned long long)time(NULL);
 
     printf("Starting %d random walks (Steps: %d) on the GPU\n", NUM_WALKS, WALK_STEPS);
@@ -137,9 +137,9 @@ int main() {
 
     // Print out all 20 final positions (accessible directly from the CPU via Unified Memory)
     printf("\nFinal Positions\n");
-    for (int i = 1; i <= NUM_WALKS; i++) {
+    for (int i = 0; i < NUM_WALKS; i++) {
         // The seed for walk 'i' is derived from the base_seed and thread ID 'i'.
-        printf("Walk %2d (Seed: %llu): Final Position = (%d, %d)\n", i, base_seed + i, d_final_positionX[i], d_final_positionY[i]); 
+        printf("Walk %2d (Seed: %llu): Final Position = (%d, %d)\n", i+1, base_seed + i, d_final_positionX[i], d_final_positionY[i]); 
 	}
 	printf("\nCleaning Unified Memory...\n\n");
 
