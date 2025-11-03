@@ -1,4 +1,4 @@
-// Name:
+// Name: Nathan S.
 // GPU random walk. 
 // nvcc P_GPURandomWalk.cu -o temp
 
@@ -150,4 +150,5 @@ int main() {
 	cudaErrorCheck(__FILE__, __LINE__);
 
     return 0;
+
 }
