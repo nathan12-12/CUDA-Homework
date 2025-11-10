@@ -15,7 +15,7 @@
  To learn about Nbody code.
 */
 
-#define NUMBER_OF_SPHERES 10 
+#define NUMBER_OF_SPHERES 11 
 #define WallDamp 0.89 // To slow it down when hitting the wall
 
 // Include files
@@ -269,12 +269,17 @@ void move_bodies(float time)
 {
     for (int i = 0; i < NUMBER_OF_SPHERES; i++)
     {
-        float dtFactor = (time == 0.0) ? 0.5*DT : DT; // Time = 0 (at first), half step, later full step
-
-        vx[i] += dtFactor*(fx[i] - DAMP*vx[i])/mass[i];
-        vy[i] += dtFactor*(fy[i] - DAMP*vy[i])/mass[i];
-        vz[i] += dtFactor*(fz[i] - DAMP*vz[i])/mass[i];
-
+		if(time == 0.0) { // At first multiply the velocity by half
+			vx[i] += 0.5*DT*(fx[i] - DAMP*vx[i])/mass[i];
+			vy[i] += 0.5*DT*(fy[i] - DAMP*vy[i])/mass[i];
+			vz[i] += 0.5*DT*(fz[i] - DAMP*vz[i])/mass[i];
+		}
+		else { // Then full step for velocity
+			vx[i] += DT*(fx[i] - DAMP*vx[i])/mass[i];
+			vy[i] += DT*(fy[i] - DAMP*vy[i])/mass[i];
+			vz[i] += DT*(fz[i] - DAMP*vz[i])/mass[i];
+		}
+		// Full step for position always
         px[i] += DT*vx[i];
         py[i] += DT*vy[i];
         pz[i] += DT*vz[i];
