@@ -105,6 +105,9 @@ void drawPicture()
 	glClear(GL_COLOR_BUFFER_BIT);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	
+	cudaMemcpyAsync(P, PGPU, N*sizeof(float3), cudaMemcpyDeviceToHost); // Don't forget to transfer memory over here too
+	cudaErrorCheck(__FILE__, __LINE__);
+	
 	glColor3d(1.0,1.0,0.5);
 	for(i=0; i<N; i++)
 	{
