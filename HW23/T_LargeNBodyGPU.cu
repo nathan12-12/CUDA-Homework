@@ -1,4 +1,4 @@
-// Name: 
+// Name: Nathan S
 // Creating a n = whatever from an n <= 1024 nBody GPU code. 
 // nvcc T_LargeNBodyGPU.cu -o temp -lglut -lm -lGLU -lGL
 
@@ -386,6 +386,7 @@ int main(int argc, char** argv)
 	glutMainLoop();
 	return 0;
 }
+
 
 
 
